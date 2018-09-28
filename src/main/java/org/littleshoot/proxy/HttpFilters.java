@@ -192,6 +192,12 @@ public interface HttpFilters {
     void proxyToServerConnectionStarted();
 
     /**
+     * return true if you need to directly answer the client without connecting to the server
+     * @return true if SSL handshake with the server should be initiated, false otherwise
+     */
+    boolean shouldInitiateServerSSLHandshake();
+
+    /**
      * Informs filter that proxy to server ssl handshake is initiating.
      */
     void proxyToServerConnectionSSLHandshakeStarted();

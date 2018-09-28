@@ -93,6 +93,11 @@ public class HttpFiltersAdapter implements HttpFilters {
     }
 
     @Override
+    public boolean shouldInitiateServerSSLHandshake() {
+        return true;
+    }
+
+    @Override
     public void proxyToServerConnectionSSLHandshakeStarted() {
     }
 
