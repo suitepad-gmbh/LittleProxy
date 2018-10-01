@@ -983,6 +983,11 @@ public class HttpFilterTest {
         }
 
         @Override
+        public boolean shouldInitiateServerSSLHandshake() {
+            return false;
+        }
+
+        @Override
         public void proxyToServerConnectionSSLHandshakeStarted() {
             proxyToServerConnectionSSLHandshakeStarted.set(true);
         }
