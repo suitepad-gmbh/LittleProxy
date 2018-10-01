@@ -16,3 +16,7 @@ LittleProxy.pro
 /bin
 *.jks
 performance/site/
+/out
+/build
+/gradle
+/.gradle
