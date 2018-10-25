@@ -126,6 +126,13 @@ public final class CertificateHelper {
             String keyStoreType) throws NoSuchAlgorithmException,
             NoSuchProviderException, IOException,
             OperatorCreationException, CertificateException, KeyStoreException {
+        return createRootCertificate(authority, keyStoreType, NOT_BEFORE, NOT_AFTER);
+    }
+
+    public static KeyStore createRootCertificate(Authority authority,
+            String keyStoreType, Date notBefore, Date notAfter) throws NoSuchAlgorithmException,
+            NoSuchProviderException, IOException,
+            OperatorCreationException, CertificateException, KeyStoreException {
 
         KeyPair keyPair = generateKeyPair(ROOT_KEYSIZE);
 
@@ -140,7 +147,7 @@ public final class CertificateHelper {
         PublicKey pubKey = keyPair.getPublic();
 
         X509v3CertificateBuilder generator = new JcaX509v3CertificateBuilder(
-                issuer, serial, NOT_BEFORE, NOT_AFTER, subject, pubKey);
+                issuer, serial, notBefore, notAfter, subject, pubKey);
 
         generator.addExtension(Extension.subjectKeyIdentifier, false,
                 createSubjectKeyIdentifier(pubKey));
