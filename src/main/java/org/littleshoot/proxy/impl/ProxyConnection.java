@@ -1,5 +1,7 @@
 package org.littleshoot.proxy.impl;
 
+import com.sun.org.apache.xpath.internal.SourceTree;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
@@ -249,46 +251,13 @@ abstract class ProxyConnection<I extends HttpObject> extends
     protected void writeFile(FileHttpResponse msg) {
         // return response
         channel.write(msg);
-        // write body
-        final ChannelFuture futureContentChannel;
-        final ChannelFuture lastContentChannel;
+        // progressively write body
         try {
             RandomAccessFile file = msg.getFile();
-            if (ctx.pipeline().get(SslHandler.class) == null) { // is http
-                futureContentChannel = channel.write(
-                        new DefaultFileRegion(file.getChannel(),
-                                0, file.length()),
-                        channel.newProgressivePromise()
-                );
-                lastContentChannel = channel.writeAndFlush(Unpooled.EMPTY_BUFFER);
-            } else { // is https
-                futureContentChannel = channel.writeAndFlush(
-                        new HttpChunkedInput(new ChunkedFile(file,
-                                0, file.length(), 1024 * 8)),
-                        channel.newProgressivePromise()
-                );
-                lastContentChannel = futureContentChannel;
-            }
-            futureContentChannel.addListener(new ChannelProgressiveFutureListener() {
-                @Override
-                public void operationProgressed(ChannelProgressiveFuture future, long progress, long total) throws Exception {
-                    if (total < 0) { // total unknown
-                        System.out.println(future.channel() + " Transfer progress: " + progress);
-                    } else {
-                        System.out.println(future.channel() + " Transfer progress: " + progress + " / " + total);
-                    }
-                }
-
-                @Override
-                public void operationComplete(ChannelProgressiveFuture ch) throws Exception {
-                    System.out.println(ch.channel() + " Transfer complete.");
-                }
-            });
-
-            if (lastContentChannel != null) {
-                lastContentChannel.addListener(ChannelFutureListener.CLOSE);
-            }
-
+            channel.writeAndFlush(
+                    new HttpChunkedInput(new ChunkedFile(file, 0, file.length(), 1024 * 16)),
+                    channel.newProgressivePromise()
+            );
         } catch (IOException e) {
             e.printStackTrace();
             disconnect();
