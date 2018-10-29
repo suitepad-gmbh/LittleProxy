@@ -12,6 +12,7 @@ import java.util.Enumeration;
  */
 @Deprecated
 public class NetworkUtils {
+    
     /**
      * @deprecated This method is no longer used by LittleProxy and may be removed in a future release.
      */
