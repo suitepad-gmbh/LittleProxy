@@ -29,7 +29,7 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
     protected final ActivityTracker DOWNSTREAM_TRACKER = new ActivityTrackerAdapter() {
         @Override
         public void requestSentToServer(FullFlowContext flowContext,
-                io.netty.handler.codec.http.HttpRequest httpRequest) {
+                HttpRequest httpRequest) {
             REQUESTS_SENT_BY_DOWNSTREAM.incrementAndGet();
             TRANSPORTS_USED.add(flowContext.getChainedProxy()
                     .getTransportProtocol());

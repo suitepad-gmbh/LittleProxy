@@ -1,16 +1,24 @@
 package org.littleshoot.proxy.impl;
 
+import com.sun.org.apache.xpath.internal.SourceTree;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.*;
 import io.netty.handler.ssl.SslHandler;
+import io.netty.handler.stream.ChunkedFile;
+import io.netty.handler.stream.ChunkedWriteHandler;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
+
 import org.littleshoot.proxy.HttpFilters;
+
+import java.io.IOException;
+import java.io.RandomAccessFile;
 
 import javax.net.ssl.SSLEngine;
 
@@ -228,13 +236,31 @@ abstract class ProxyConnection<I extends HttpObject> extends
         LOG.debug("Writing: {}", msg);
 
         try {
-            if (msg instanceof HttpObject) {
+            if (msg instanceof FileHttpResponse) {
+                writeFile((FileHttpResponse) msg);
+            } else if (msg instanceof HttpObject) {
                 writeHttp((HttpObject) msg);
             } else {
                 writeRaw((ByteBuf) msg);
             }
         } finally {
             LOG.debug("Wrote: {}", msg);
+        }
+    }
+
+    protected void writeFile(FileHttpResponse msg) {
+        // return response
+        channel.write(msg);
+        // progressively write body
+        try {
+            RandomAccessFile file = msg.getFile();
+            channel.writeAndFlush(
+                    new HttpChunkedInput(new ChunkedFile(file, 0, file.length(), 1024 * 16)),
+                    channel.newProgressivePromise()
+            );
+        } catch (IOException e) {
+            e.printStackTrace();
+            disconnect();
         }
     }
 
@@ -356,7 +382,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
     /**
      * Encrypts traffic on this connection with SSL/TLS.
-     * 
+     *
      * @param pipeline
      *            the ChannelPipeline on which to enable encryption
      * @param sslEngine
@@ -391,7 +417,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
     /**
      * Encrypts the channel using the provided {@link SSLEngine}.
-     * 
+     *
      * @param sslEngine
      *            the {@link SSLEngine} for doing the encryption
      */
@@ -414,7 +440,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * Enables decompression and aggregation of content, which is useful for
      * certain types of filtering activity.
-     * 
+     *
      * @param pipeline
      * @param numberOfBytesToBuffer
      */
@@ -423,6 +449,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
         pipeline.addLast("inflater", new HttpContentDecompressor());
         pipeline.addLast("aggregator", new HttpObjectAggregator(
                 numberOfBytesToBuffer));
+        pipeline.addLast("chunk writer", new ChunkedWriteHandler());
     }
 
     /**
@@ -442,7 +469,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * Override this to handle exceptions that occurred during asynchronous
      * processing on the {@link Channel}.
-     * 
+     *
      * @param cause
      */
     protected void exceptionCaught(Throwable cause) {
@@ -454,7 +481,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * Disconnects. This will wait for pending writes to be flushed before
      * disconnecting.
-     * 
+     *
      * @return Future<Void> for when we're done disconnecting. If we weren't
      *         connected, this returns null.
      */
@@ -496,7 +523,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * Indicates whether or not this connection is saturated (i.e. not
      * writeable).
-     * 
+     *
      * @return
      */
     protected boolean isSaturated() {
@@ -505,7 +532,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
     /**
      * Utility for checking current state.
-     * 
+     *
      * @param state
      * @return
      */
@@ -516,7 +543,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * If this connection is currently in the process of going through a
      * {@link ConnectionFlow}, this will return true.
-     * 
+     *
      * @return
      */
     protected boolean isConnecting() {
@@ -525,7 +552,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
     /**
      * Udpates the current state to the given value.
-     * 
+     *
      * @param state
      */
     protected void become(ConnectionState state) {
@@ -566,10 +593,10 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
     /**
      * Request the ProxyServer for Filters.
-     * 
+     *
      * By default, no-op filters are returned by DefaultHttpProxyServer.
      * Subclasses of ProxyConnection can change this behaviour.
-     * 
+     *
      * @param httpRequest
      *            Filter attached to the give HttpRequest (if any)
      * @return
@@ -654,7 +681,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * We're looking for {@link IdleStateEvent}s to see if we need to
      * disconnect.
      * </p>
-     * 
+     *
      * <p>
      * Note - we don't care what kind of IdleState we got. Thanks to <a
      * href="https://github.com/qbast">qbast</a> for pointing this out.
