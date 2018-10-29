@@ -42,6 +42,7 @@ import org.littleshoot.proxy.MitmManager;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolException;
 
+import javax.annotation.Nullable;
 import javax.net.ssl.SSLProtocolException;
 import javax.net.ssl.SSLSession;
 import java.io.IOException;
@@ -596,7 +597,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      *
      * @return SSLSession or Null
      */
-    private SSLSession getSSLSessionsOrNull() {
+    @Nullable private SSLSession getSSLSessionsOrNull() {
         if (sslEngine == null) {
             return null;
         }
