@@ -19,6 +19,8 @@ import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -52,6 +54,10 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
     private static final String KEY_STORE_TYPE = "PKCS12";
 
     private static final String KEY_STORE_FILE_EXTENSION = ".p12";
+
+    private static final long ONE_DAY = 86400000L;
+
+    private static final long ONE_MONTH = ONE_DAY * 30;
 
     private final Authority authority;
 
@@ -203,8 +209,10 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
             return;
         }
         MillisecondsDuration duration = new MillisecondsDuration();
+        Date notBefore = new Date(System.currentTimeMillis() - ONE_DAY);
+        Date notAfter = new Date(System.currentTimeMillis() + ONE_MONTH);
         KeyStore keystore = CertificateHelper.createRootCertificate(authority,
-                KEY_STORE_TYPE);
+                KEY_STORE_TYPE, notBefore, notAfter);
         LOG.info("Created root certificate authority key store in {}ms",
                 duration);
 
@@ -280,11 +288,6 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
      * @param subjectAlternativeNames
      *            a List of the subject alternative names to use in the server
      *            certificate, could be empty, but must not be null
-     * 
-     * @see org.parosproxy.paros.security.SslCertificateServiceImpl.
-     *      createCertForHost(String)
-     * @see org.parosproxy.paros.network.SSLConnector.getTunnelSSLSocketFactory(
-     *      String)
      */
     public SSLEngine createCertForHost(final String commonName,
             final SubjectAlternativeNameHolder subjectAlternativeNames)
