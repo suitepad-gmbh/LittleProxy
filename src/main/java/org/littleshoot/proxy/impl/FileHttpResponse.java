@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.RandomAccessFile;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -22,19 +23,18 @@ public class FileHttpResponse extends DefaultHttpResponse {
         this.file = file;
     }
 
-    private boolean isFileNotAccessible() {
-        if (file == null) return true;
+    private boolean isFileAccessible() {
+        if (file == null) return false;
         try {
-            if (!file.exists() || !file.isFile() || !file.canRead()) return true;
+            if (file.exists() && file.isFile() && file.canRead()) return true;
         } catch (SecurityException e) {
             e.printStackTrace();
-            return true;
         }
         return false;
     }
 
-    public RandomAccessFile getFile() {
-        if (isFileNotAccessible()) return null;
+    @Nullable public RandomAccessFile getFile() {
+        if (!isFileAccessible()) return null;
         try {
             return new RandomAccessFile(file, "r");
         } catch (FileNotFoundException e) {

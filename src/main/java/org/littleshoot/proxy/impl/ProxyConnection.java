@@ -368,7 +368,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
     /**
      * Encrypts traffic on this connection with SSL/TLS.
-     *
+     * 
      * @param sslEngine
      *            the {@link SSLEngine} for doing the encryption
      * @param authenticateClients
