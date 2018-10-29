@@ -42,6 +42,7 @@ import org.littleshoot.proxy.MitmManager;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolException;
 
+import javax.annotation.Nullable;
 import javax.net.ssl.SSLProtocolException;
 import javax.net.ssl.SSLSession;
 import java.io.IOException;
@@ -134,10 +135,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private volatile GlobalTrafficShapingHandler trafficHandler;
 
     /**
-     * Minimum size of the adaptive recv buffer when throttling is enabled. 
+     * Minimum size of the adaptive recv buffer when throttling is enabled.
      */
     private static final int MINIMUM_RECV_BUFFER_SIZE_BYTES = 64;
-    
+
     /**
      * Create a new ProxyToServerConnection.
      * 
@@ -541,49 +542,73 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private void initializeConnectionFlow() {
         this.connectionFlow = new ConnectionFlow(clientConnection, this,
-                connectLock)
-                .then(ConnectChannel);
+                connectLock);
 
-        if (chainedProxy != null && chainedProxy.requiresEncryption()) {
-            connectionFlow.then(serverConnection.EncryptChannel(chainedProxy
-                    .newSslEngine()));
-        }
 
-        if (ProxyUtils.isCONNECT(initialRequest)) {
-            // If we're chaining, forward the CONNECT request
-            if (hasUpstreamChainedProxy()) {
-                connectionFlow.then(
-                        serverConnection.HTTPCONNECTWithChainedProxy);
-            }        	
-        	
-            MitmManager mitmManager = proxyServer.getMitmManager();
-            boolean isMitmEnabled = mitmManager != null;
+        if (ProxyUtils.isCONNECT(initialRequest) && isMitmEnabled() &&
+                (!currentFilters.shouldInitiateServerSSLHandshake() || remoteAddress.isUnresolved())) {  // Skip SSL handshake
+            connectionFlow.then(clientConnection.RespondCONNECTSuccessful);
+            connectionFlow.then(serverConnection.MitmEncryptClientChannel);
+        } else {
+            connectionFlow.then(ConnectChannel);
 
-            if (isMitmEnabled) {
-                // When MITM is enabled and when chained proxy is set up, remoteAddress
-                // will be the chained proxy's address. So we use serverHostAndPort
-                // which is the end server's address.
-                HostAndPort parsedHostAndPort = HostAndPort.fromString(serverHostAndPort);
+            if (chainedProxy != null && chainedProxy.requiresEncryption()) {
+                connectionFlow.then(serverConnection.EncryptChannel(chainedProxy
+                        .newSslEngine()));
+            }
 
-                // SNI may be disabled for this request due to a previous failed attempt to connect to the server
-                // with SNI enabled.
-                if (disableSni) {
-                    connectionFlow.then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
-                            .serverSslEngine()));
-                } else {
-                    connectionFlow.then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
-                            .serverSslEngine(parsedHostAndPort.getHost(), parsedHostAndPort.getPort())));
+            if (ProxyUtils.isCONNECT(initialRequest)) {
+                // If we're chaining, forward the CONNECT request
+                if (hasUpstreamChainedProxy()) {
+                    connectionFlow.then(
+                            serverConnection.HTTPCONNECTWithChainedProxy);
                 }
 
-            	connectionFlow
-                        .then(clientConnection.RespondCONNECTSuccessful)
-                        .then(serverConnection.MitmEncryptClientChannel);
-            } else {
-                connectionFlow.then(serverConnection.StartTunneling)
-                        .then(clientConnection.RespondCONNECTSuccessful)
-                        .then(clientConnection.StartTunneling);
+
+                if (isMitmEnabled()) {
+                    // When MITM is enabled and when chained proxy is set up, remoteAddress
+                    // will be the chained proxy's address. So we use serverHostAndPort
+                    // which is the end server's address.
+                    HostAndPort parsedHostAndPort = HostAndPort.fromString(serverHostAndPort);
+
+                    // SNI may be disabled for this request due to a previous failed attempt to connect to the server
+                    // with SNI enabled.
+                    if (disableSni) {
+                        connectionFlow.then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
+                                .serverSslEngine()));
+                    } else {
+                        connectionFlow.then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
+                                .serverSslEngine(parsedHostAndPort.getHost(), parsedHostAndPort.getPort())));
+                    }
+
+                    connectionFlow
+                            .then(clientConnection.RespondCONNECTSuccessful)
+                            .then(serverConnection.MitmEncryptClientChannel);
+                } else {
+                    connectionFlow.then(serverConnection.StartTunneling)
+                            .then(clientConnection.RespondCONNECTSuccessful)
+                            .then(clientConnection.StartTunneling);
+                }
             }
         }
+    }
+
+    /**
+     * 
+     * @return SSLSession or Null
+     */
+    @Nullable private SSLSession getSSLSessionsOrNull() {
+        if (sslEngine == null) {
+            return null;
+        }
+        return sslEngine.getSession();
+    }
+
+    /**
+     * @return true if Mitm is enabled
+     */
+    private boolean isMitmEnabled() {
+        return proxyServer.getMitmManager() != null;
     }
 
     /**
@@ -643,8 +668,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         protected Future<?> execute() {
             LOG.debug("Handling CONNECT request through Chained Proxy");
             chainedProxy.filterRequest(initialRequest);
-            MitmManager mitmManager = proxyServer.getMitmManager();
-            boolean isMitmEnabled = mitmManager != null;
             /*
              * We ignore the LastHttpContent which we read from the client
              * connection when we are negotiating connect (see readHttp()
@@ -654,7 +677,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
              * when the next request is written. Writing the EmptyLastContent
              * resets its state.
              */
-            if(isMitmEnabled){
+            if(isMitmEnabled()){
                 ChannelFuture future = writeToChannel(initialRequest);
                 future.addListener(new ChannelFutureListener() {
 
@@ -721,7 +744,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         protected Future<?> execute() {
             return clientConnection
                     .encrypt(proxyServer.getMitmManager()
-                            .clientSslEngineFor(initialRequest, sslEngine.getSession()), false)
+                            .clientSslEngineFor(initialRequest, getSSLSessionsOrNull()), false)
                     .addListener(
                             new GenericFutureListener<Future<? super Channel>>() {
                                 @Override
