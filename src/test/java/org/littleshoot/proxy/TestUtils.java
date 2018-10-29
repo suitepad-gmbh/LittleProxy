@@ -371,9 +371,9 @@ public class TestUtils {
     }
 
     /**
-     * Determines if we are running on a Unix-like operating system that exposes a {@link com.sun.management.UnixOperatingSystemMXBean}.
+     * Determines if we are running on a Unix-like operating system that exposes a {@link UnixOperatingSystemMXBean}.
      *
-     * @return true if this is a Unix OS and the JVM exposes a {@link com.sun.management.UnixOperatingSystemMXBean}, otherwise false.
+     * @return true if this is a Unix OS and the JVM exposes a {@link UnixOperatingSystemMXBean}, otherwise false.
      */
     public static boolean isUnixManagementCapable() {
         OperatingSystemMXBean osMxBean = ManagementFactory.getOperatingSystemMXBean();

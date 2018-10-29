@@ -539,6 +539,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 throw new UnknownTransportProtocolException(transportProtocol);
         }
         serverBootstrap.childHandler(initializer);
+        serverBootstrap.childOption(ChannelOption.SO_KEEPALIVE, true);
         ChannelFuture future = serverBootstrap.bind(requestedAddress)
                 .addListener(new ChannelFutureListener() {
                     @Override
