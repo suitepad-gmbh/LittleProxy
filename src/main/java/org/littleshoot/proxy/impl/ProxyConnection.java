@@ -1,13 +1,12 @@
 package org.littleshoot.proxy.impl;
 
-import com.sun.org.apache.xpath.internal.SourceTree;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.*;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.stream.ChunkedFile;
+import io.netty.handler.stream.ChunkedStream;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCounted;
@@ -236,7 +235,9 @@ abstract class ProxyConnection<I extends HttpObject> extends
         LOG.debug("Writing: {}", msg);
 
         try {
-            if (msg instanceof FileHttpResponse) {
+            if (msg instanceof StreamHttpResponse) {
+                writeStream((StreamHttpResponse) msg);
+            } else if (msg instanceof FileHttpResponse) {
                 writeFile((FileHttpResponse) msg);
             } else if (msg instanceof HttpObject) {
                 writeHttp((HttpObject) msg);
@@ -245,6 +246,21 @@ abstract class ProxyConnection<I extends HttpObject> extends
             }
         } finally {
             LOG.debug("Wrote: {}", msg);
+        }
+    }
+
+    protected void writeStream(StreamHttpResponse msg) {
+        // return response
+        channel.write(msg);
+        // progressively write body
+        try {
+            channel.writeAndFlush(
+                    new HttpChunkedInput(new ChunkedStream(msg.getStream(), 1024 * 16)),
+                    channel.newProgressivePromise()
+            );
+        } catch (Exception e) {
+            e.printStackTrace();
+            disconnect();
         }
     }
 
