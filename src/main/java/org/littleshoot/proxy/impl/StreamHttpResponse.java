@@ -2,7 +2,6 @@ package org.littleshoot.proxy.impl;
 
 import java.io.InputStream;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import io.netty.handler.codec.http.DefaultHttpResponse;
@@ -16,7 +15,7 @@ public class StreamHttpResponse extends DefaultHttpResponse {
 
     private InputStream stream;
 
-    public StreamHttpResponse(HttpVersion version, HttpResponseStatus status, @Nonnull InputStream stream) {
+    public StreamHttpResponse(HttpVersion version, HttpResponseStatus status, InputStream stream) {
         super(version, status);
         this.stream = stream;
     }

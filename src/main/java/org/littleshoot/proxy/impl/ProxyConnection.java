@@ -14,6 +14,7 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
 
+import org.eclipse.jetty.util.IO;
 import org.littleshoot.proxy.HttpFilters;
 
 import java.io.IOException;
@@ -253,14 +254,13 @@ abstract class ProxyConnection<I extends HttpObject> extends
         // return response
         channel.write(msg);
         // progressively write body
-        try {
+        if (msg.getStream() == null) {
+            writeToChannel(Unpooled.EMPTY_BUFFER);
+        } else {
             channel.writeAndFlush(
                     new HttpChunkedInput(new ChunkedStream(msg.getStream(), 1024 * 16)),
                     channel.newProgressivePromise()
             );
-        } catch (Exception e) {
-            e.printStackTrace();
-            disconnect();
         }
     }
 
