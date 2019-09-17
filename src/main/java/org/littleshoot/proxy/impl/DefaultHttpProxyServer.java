@@ -1,17 +1,20 @@
 package org.littleshoot.proxy.impl;
 
-import io.netty.bootstrap.ChannelFactory;
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFactory;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
+import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.ChannelGroupFuture;
 import io.netty.channel.group.DefaultChannelGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
@@ -522,12 +525,19 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         switch (transportProtocol) {
             case TCP:
                 LOG.info("Proxy listening with TCP transport");
-                serverBootstrap.channelFactory(new ChannelFactory<ServerChannel>() {
-                    @Override
-                    public ServerChannel newChannel() {
-                        return new NioServerSocketChannel();
-                    }
-                });
+//                serverBootstrap.channelFactory(new ChannelFactory<ServerChannel>() {
+//                    @Override
+//                    public ServerChannel newChannel() {
+//                        return new NioServerSocketChannel();
+//                    }
+//                });
+                serverBootstrap.channel(NioServerSocketChannel.class);
+//                serverBootstrap.channelFactory(new ChannelFactory<ServerChannel>() {
+//                    @Override
+//                    public ServerChannel newChannel() {
+//                        return new NioServerSocketChannel();
+//                    }
+//                });
                 break;
             case UDT:
                 LOG.info("Proxy listening with UDT transport");
@@ -539,7 +549,18 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 throw new UnknownTransportProtocolException(transportProtocol);
         }
         serverBootstrap.childHandler(initializer);
+        serverBootstrap.option(ChannelOption.TCP_NODELAY, true);
+        serverBootstrap.option(ChannelOption.SO_REUSEADDR, true);
+        serverBootstrap.option(ChannelOption.SO_LINGER, 10);
+        serverBootstrap.childOption(ChannelOption.TCP_NODELAY, true);
+        serverBootstrap.childOption(ChannelOption.SO_REUSEADDR, true);
         serverBootstrap.childOption(ChannelOption.SO_KEEPALIVE, true);
+        serverBootstrap.childOption(ChannelOption.SO_LINGER,  10);
+        serverBootstrap.childOption(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000);
+        serverBootstrap.childOption(ChannelOption.SO_RCVBUF, 1024 * 1024);
+        serverBootstrap.childOption(ChannelOption.SO_SNDBUF, 1024 * 1024);
+        serverBootstrap.childOption(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(8 * 1024, 32 * 1024));
+        serverBootstrap.childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
         ChannelFuture future = serverBootstrap.bind(requestedAddress)
                 .addListener(new ChannelFutureListener() {
                     @Override
