@@ -28,17 +28,17 @@ public class ServerGroup {
      * The default number of threads to accept incoming requests from clients. (Requests are serviced by worker threads,
      * not acceptor threads.)
      */
-    public static final int DEFAULT_INCOMING_ACCEPTOR_THREADS = 2;
+    public static final int DEFAULT_INCOMING_ACCEPTOR_THREADS = 1;
 
     /**
      * The default number of threads to service incoming requests from clients.
      */
-    public static final int DEFAULT_INCOMING_WORKER_THREADS = 8;
+    public static final int DEFAULT_INCOMING_WORKER_THREADS = 3;
 
     /**
      * The default number of threads to service outgoing requests to servers.
      */
-    public static final int DEFAULT_OUTGOING_WORKER_THREADS = 8;
+    public static final int DEFAULT_OUTGOING_WORKER_THREADS = 3;
 
     /**
      * Global counter for the {@link #serverGroupId}.
