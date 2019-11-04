@@ -8,6 +8,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import io.netty.handler.codec.http.DefaultHttpResponse;
+import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 
@@ -18,8 +19,13 @@ public class FileHttpResponse extends DefaultHttpResponse {
 
     private File file;
 
-    public FileHttpResponse(HttpVersion version, HttpResponseStatus status, @Nonnull File file) {
-        super(version, status);
+    public FileHttpResponse(HttpResponseStatus status, @Nonnull File file, HttpHeaders headers) {
+        super(HttpVersion.HTTP_1_1, status, headers);
+        this.file = file;
+    }
+
+    public FileHttpResponse(HttpResponseStatus status, @Nonnull File file) {
+        super(HttpVersion.HTTP_1_1, status);
         this.file = file;
     }
 
